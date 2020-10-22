@@ -1,12 +1,20 @@
 import math
 import random
+import sys
+
+from PyQt5 import QtWidgets, QtCore
+from RSA_UI import Ui_MainWindow  # Импорт GUI
+
+
+encrypted = []
+e, d, n = 0, 0, 0
 
 
 def is_prime(num, r):  # Проверка на простоту Миллера-Рабина
     for i in range(r):
         s = 2
         while True:
-            t = (num - 1)/2**s
+            t = (num - 1) / 2 ** s
             if int(t) == 0:
                 s, t = 3, 1
             if t % int(t) == 0 and t % 2 == 1:
@@ -29,8 +37,8 @@ def is_prime(num, r):  # Проверка на простоту Миллера-�
 
 def prime_num():  # Генератор простого числа
     while True:
-        num = random.randint(2 ** (dim - 1), 2 ** dim - 1)  # Генерируем число указанной размерности
-        r = math.ceil(math.log2(num))//4  # Выбираем количество раундов равным порядку log2(n)//4
+        num = random.randint(2 ** (30 - 1), 2 ** 30 - 1)  # Генерируем число указанной размерности
+        r = math.ceil(math.log2(num)) // 4  # Выбираем количество раундов равным порядку log2(n)//4
         if is_prime(num, r):  # Проверяем простое ли оно
             return num
 
@@ -42,7 +50,7 @@ def opened_exp(euler):  # Вычисление открытой экспонен
             return ferm
 
 
-def bezout_recursive(a, b):
+def bezout_recursive(a, b):  # Вычисление коэффициенов Безу
     if not b:
         return 1, 0, a
     y, x, g = bezout_recursive(b, a % b)
@@ -54,23 +62,76 @@ def closed_exp(e, euler):  # Вычисление закрытой экспон�
     return x[0] + euler if x[0] < 0 else x[0]
 
 
-message, coded_message, decoded_message = list(input("Enter a message:\n")), [], []
-for letter in message:
-    coded_message.append(ord(letter))
-dim = int(input("Укажите размерность: \n"))
-print("Generating a new keys for you")
-p = prime_num()  # Выбираются два простых числа p и q
-q = prime_num()
-n = p * q
-euler = (p - 1) * (q - 1)  # Определяется φ(n)=(p – 1)( q – 1)
-e = opened_exp(euler)  # Выбор числа e, взаимно простого с φ(n), причем e < φ(n)
-d = closed_exp(e, euler)
-print(f'Public key: {e, n}')
-print(f'Private key: {d, n}')
-encrypted = [pow(x, e, n) for x in coded_message]
-print(encrypted)
-decrypted = [pow(x, d, n) for x in encrypted]
-print(decrypted)
-for letter in decrypted:
-    decoded_message.append(chr(letter))
-print("".join(decoded_message))
+class GenKey(QtCore.QObject):  # Генерация ключей в потоке-воркере
+    set_key_text = QtCore.pyqtSignal(int, int)
+    set_enc_text = QtCore.pyqtSignal(list)
+    finish = QtCore.pyqtSignal()
+
+    def run(self, coded_message):
+        global e, d, n, encrypted
+        p = prime_num()  # Выбираются два простых числа p и q
+        q = prime_num()
+        n = p * q
+        euler = (p - 1) * (q - 1)  # Определяется φ(n)=(p – 1)( q – 1)
+        e = opened_exp(euler)  # Выбор числа e, взаимно простого с φ(n), причем e < φ(n)
+        d = closed_exp(e, euler)  # Выбор числа d, отвечающего тождеству e*d = 1 (mod φ(n))
+        self.set_key_text.emit(e, n)
+        encrypted = [pow(x, e, n) for x in coded_message]
+        self.set_enc_text.emit(encrypted)
+        self.finish.emit()
+
+    @QtCore.pyqtSlot(int, int)
+    def set_key(self):
+        application.ui.label_key.setText(f'Public key: {e, n}')
+
+    @QtCore.pyqtSlot(list)
+    def set_enc(self):
+        application.ui.label_encrypt.setText(f'Encrypted text: {encrypted}')
+
+    @QtCore.pyqtSlot()
+    def return_but():
+        application.ui.button_encrypt.setEnabled(True)
+        application.thread.exit()
+
+
+class MyWindow(QtWidgets.QMainWindow):
+    def __init__(self):
+        super(MyWindow, self).__init__()
+        self.ui = Ui_MainWindow()
+        self.ui.setupUi(self)
+        self.ui.button_encrypt.clicked.connect(self.encrypt)
+        self.ui.button_decrypt.clicked.connect(self.decrypt)
+        self.thread = QtCore.QThread()
+        self.gen = GenKey()
+        self.gen.moveToThread(self.thread)
+        self.gen.set_key_text.connect(GenKey.set_key)
+        self.gen.set_enc_text.connect(GenKey.set_enc)
+        self.gen.finish.connect(GenKey.return_but)
+
+    def encrypt(self):  # Шифрование
+        message, coded_message = list(self.ui.text_input.toPlainText()), []  # Считывание сообщения
+        if not len(message):
+            return
+        for letter in message:
+            coded_message.append(ord(letter))
+        self.ui.label_key.setText("Generating new keys for you")
+        self.thread.started.connect(lambda: self.gen.run(coded_message))
+        self.ui.button_encrypt.setEnabled(False)
+        self.thread.start()
+
+    def decrypt(self):  # Расшифровка
+        decoded_message = []
+        decrypted = [pow(x, d, n) for x in encrypted]  # Расшифрование
+        for letter in decrypted:
+            decoded_message.append(chr(letter))
+        result = "".join(decoded_message)
+        self.ui.label_decrypt.setText(result)
+
+
+app = QtWidgets.QApplication([])
+application = MyWindow()
+application.show()
+sys.exit(app.exec())
+
+
+
