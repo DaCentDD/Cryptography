@@ -21,29 +21,33 @@ class Ui_MainWindow(object):
         font.setPointSize(10)
         MainWindow.setFont(font)
         MainWindow.setStyleSheet("QMainWindow {\n"
-"    background-color: white;\n"
-"}\n"
-"\n"
-"#text_input {\n"
-"    border-top: 3px solid #1E90FF;\n"
-"    border-bottom: 3px solid #1E90FF;\n"
-"    background-color: white;\n"
-"}\n"
-"\n"
-"QPushButton {\n"
-"    color: white;\n"
-"    background-color: #1E90FF;\n"
-"    border: 0\n"
-"}\n"
-"\n"
-"QPushButton:hover {\n"
-"    color: white;\n"
-"    background-color: #00BFFF;\n"
-"}\n"
-"\n"
-"#label_encrypt {\n"
-"    border-top: 3px solid #1E90FF;\n"
-"}")
+                                        "    background-color: white;\n"
+                                        "}\n"
+                                        "\n"
+                                        "#text_input {\n"
+                                        "    border-top: 3px solid #1E90FF;\n"
+                                        "    border-bottom: 3px solid #1E90FF;\n"
+                                        "    background-color: white;\n"
+                                        "}\n"
+                                        "\n"
+                                        "QPushButton {\n"
+                                        "    color: white;\n"
+                                        "    background-color: #1E90FF;\n"
+                                        "    border: 0\n"
+                                        "}\n"
+                                        "\n"
+                                        "QPushButton:disabled {\n"
+                                        "    color: white;\n"
+                                        "    background-color: #00BFFF;\n"
+                                        "}\n"
+                                        "QPushButton:hover {\n"
+                                        "    color: white;\n"
+                                        "    background-color: #00BFFF;\n"
+                                        "}\n"
+                                        "\n"
+                                        "#label_encrypt {\n"
+                                        "    border-top: 3px solid #1E90FF;\n"
+                                        "}")
         self.centralwidget = QtWidgets.QWidget(MainWindow)
         self.centralwidget.setObjectName("centralwidget")
         self.verticalLayout_2 = QtWidgets.QVBoxLayout(self.centralwidget)
@@ -83,6 +87,7 @@ class Ui_MainWindow(object):
         self.label_encrypt.setTextFormat(QtCore.Qt.RichText)
         self.label_encrypt.setAlignment(QtCore.Qt.AlignCenter)
         self.label_encrypt.setObjectName("label_encrypt")
+        self.label_encrypt.setWordWrap(True)
         self.verticalLayout.addWidget(self.label_encrypt)
         self.button_decrypt = QtWidgets.QPushButton(self.centralwidget)
         self.button_decrypt.setMaximumSize(QtCore.QSize(16777215, 50))
@@ -96,6 +101,7 @@ class Ui_MainWindow(object):
         font.setPointSize(12)
         self.label_decrypt.setFont(font)
         self.label_decrypt.setText("")
+        self.label_decrypt.setWordWrap(True)
         self.label_decrypt.setAlignment(QtCore.Qt.AlignCenter)
         self.label_decrypt.setObjectName("label_decrypt")
         self.verticalLayout.addWidget(self.label_decrypt)

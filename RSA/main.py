@@ -8,6 +8,7 @@ from RSA_UI import Ui_MainWindow  # Импорт GUI
 
 encrypted = []
 e, d, n = 0, 0, 0
+dim = 64  # Размерность генерируемого ключа в битах.
 
 
 def is_prime(num, r):  # Проверка на простоту Миллера-Рабина
@@ -37,7 +38,7 @@ def is_prime(num, r):  # Проверка на простоту Миллера-�
 
 def prime_num():  # Генератор простого числа
     while True:
-        num = random.randint(2 ** (30 - 1), 2 ** 30 - 1)  # Генерируем число указанной размерности
+        num = random.randint(2 ** (dim/2 - 1), 2 ** (dim/2) - 1)  # Генерируем число указанной размерности / 2
         r = math.ceil(math.log2(num)) // 4  # Выбираем количество раундов равным порядку log2(n)//4
         if is_prime(num, r):  # Проверяем простое ли оно
             return num
@@ -62,12 +63,16 @@ def closed_exp(e, euler):  # Вычисление закрытой экспон�
     return x[0] + euler if x[0] < 0 else x[0]
 
 
-class GenKey(QtCore.QObject):  # Генерация ключей в потоке-воркере
+class GenKey(QtCore.QThread):  # Генерация ключей в потоке-воркере
     set_key_text = QtCore.pyqtSignal(int, int)
     set_enc_text = QtCore.pyqtSignal(list)
     finish = QtCore.pyqtSignal()
 
-    def run(self, coded_message):
+    def __init__(self, coded_message):
+        QtCore.QThread.__init__(self)
+        self.coded_message = coded_message
+
+    def run(self):
         global e, d, n, encrypted
         p = prime_num()  # Выбираются два простых числа p и q
         q = prime_num()
@@ -76,7 +81,7 @@ class GenKey(QtCore.QObject):  # Генерация ключей в потоке
         e = opened_exp(euler)  # Выбор числа e, взаимно простого с φ(n), причем e < φ(n)
         d = closed_exp(e, euler)  # Выбор числа d, отвечающего тождеству e*d = 1 (mod φ(n))
         self.set_key_text.emit(e, n)
-        encrypted = [pow(x, e, n) for x in coded_message]
+        encrypted = [pow(x, e, n) for x in self.coded_message]
         self.set_enc_text.emit(encrypted)
         self.finish.emit()
 
@@ -86,12 +91,12 @@ class GenKey(QtCore.QObject):  # Генерация ключей в потоке
 
     @QtCore.pyqtSlot(list)
     def set_enc(self):
-        application.ui.label_encrypt.setText(f'Encrypted text: {encrypted}')
+        application.ui.label_encrypt.setText(f'{encrypted}')
 
     @QtCore.pyqtSlot()
     def return_but():
         application.ui.button_encrypt.setEnabled(True)
-        application.thread.exit()
+        application.gen.exit()
 
 
 class MyWindow(QtWidgets.QMainWindow):
@@ -101,12 +106,6 @@ class MyWindow(QtWidgets.QMainWindow):
         self.ui.setupUi(self)
         self.ui.button_encrypt.clicked.connect(self.encrypt)
         self.ui.button_decrypt.clicked.connect(self.decrypt)
-        self.thread = QtCore.QThread()
-        self.gen = GenKey()
-        self.gen.moveToThread(self.thread)
-        self.gen.set_key_text.connect(GenKey.set_key)
-        self.gen.set_enc_text.connect(GenKey.set_enc)
-        self.gen.finish.connect(GenKey.return_but)
 
     def encrypt(self):  # Шифрование
         message, coded_message = list(self.ui.text_input.toPlainText()), []  # Считывание сообщения
@@ -115,9 +114,12 @@ class MyWindow(QtWidgets.QMainWindow):
         for letter in message:
             coded_message.append(ord(letter))
         self.ui.label_key.setText("Generating new keys for you")
-        self.thread.started.connect(lambda: self.gen.run(coded_message))
         self.ui.button_encrypt.setEnabled(False)
-        self.thread.start()
+        self.gen = GenKey(coded_message)
+        self.gen.set_key_text.connect(GenKey.set_key)
+        self.gen.set_enc_text.connect(GenKey.set_enc)
+        self.gen.finish.connect(GenKey.return_but)
+        self.gen.start()
 
     def decrypt(self):  # Расшифровка
         decoded_message = []
